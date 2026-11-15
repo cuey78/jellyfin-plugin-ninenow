@@ -35,13 +35,36 @@ Brightcove fallback (optional, configure account id + policy key).
 
 ## Install
 
-1. Copy `Jellyfin.Plugin.NineNow.dll` (from `dist/` or a local build) into
-   Jellyfin's `plugins/ninety-now/` folder and restart the server.
-2. In the web UI: **Dashboard → Plugins** — the plugin should be active.
-3. Open its **Settings** page. It shows whether the 9Now API is reachable and
+### From a plugin repository (recommended)
+
+Serve `dist/repo.json` + the zips next to it from any HTTPS location (a GitHub
+repo with the `dist/` folder committed works well). Then in Jellyfin:
+**Dashboard → Plugins → Repositories**, add the `repo.json` URL — "Nine Network
+(9Now)" shows up in the plugin catalog, and updates flow through Jellyfin's
+normal plugin-update mechanism.
+
+Rebuild the feed after bumping the version in the `.csproj`:
+
+```sh
+./packaging/build-release.sh https://raw.githubusercontent.com/<you>/<repo>/<branch>/dist
+```
+
+This writes `dist/nine-network_<version>.zip` and regenerates `dist/repo.json`
+(v12 format: camelCase `versions[]` entries with MD5 checksums, `targetAbi`
+matching the `Jellyfin.Controller` package version).
+
+### Manual
+
+Copy `Jellyfin.Plugin.NineNow.dll` into Jellyfin's `plugins/` subfolder
+(create one, e.g. `plugins/nine-network/`) and restart the server.
+
+### Then, either way
+
+1. In the web UI: **Dashboard → Plugins** — the plugin should be active.
+2. Open its **Settings** page. It shows whether the 9Now API is reachable and
    how many channels it sees for your market.
-4. Press **Register 9Now tuner & guide in Live TV settings**.
-5. Live TV should now show the channels and guide within a minute or two
+3. Press **Register 9Now tuner & guide in Live TV settings**.
+4. Live TV should now show the channels and guide within a minute or two
    (the plugin's hosted service also keeps the catalogue warm, and Jellyfin
    refreshes the guide on its own schedule — keep the refresh interval at
    6–12 h since the 9Now feed only reaches ~12 hours ahead).
@@ -74,7 +97,9 @@ change the config page — jellyfin-web HTTP-caches the page by assembly version
 
 - `Jellyfin.Plugin.NineNow/` — plugin source (`Nine/` API client, `LiveTv/`
   setup service + interfaces, `Api/NineNowController.cs`, embedded config page).
-- `dist/` — packaged dll + `plugin.xml`.
+- `packaging/build-release.sh` — builds the plugin and generates the repository
+  feed (`zip` + `repo.json`) for a given hosting base URL.
+- `dist/` — generated release artifacts (`nine-network_<version>.zip`, `repo.json`).
 - `tools/container-test/` — curl/API helpers and guide/playback/recording
   probes used against a real Jellyfin 12.4 container.
 - `PROPOSAL.md` — design notes: port plan from the reverse-engineered Rust app

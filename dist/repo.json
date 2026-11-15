@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Nine Network (9Now)",
+    "description": "Nine Network live TV for Jellyfin. Pulls channels, stream URLs, EPG and artwork live from the 9Now service, served to Jellyfin via its built-in M3U tuner and XmlTV provider. One-click tuner + guide registration on the plugin settings page. Australian viewers only.",
+    "overview": "Nine Network (Channel 9, 9Gem, 9Go!, 9Life, 9Rush + FAST channels) live in the Jellyfin UI with guide data, logos and show posters.",
+    "owner": "cuey",
+    "category": "General",
+    "guid": "343f098f-4087-425d-a3a2-182e50992673",
+    "versions": [
+      {
+        "version": "1.0.0.5",
+        "changelog": "-",
+        "timestamp": "2026-11-15T08:57:21Z",
+        "targetAbi": "12.4.0.0",
+        "sourceUrl": "http://127.0.0.1:8123/nine-network_1.0.0.5.zip",
+        "checksum": "486f70fb508c5ae62ebb36252c3c993b"
+      }
+    ]
+  }
+]
