@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>9Now Live TV</title>
+</head>
+<body>
+    <div id="NineNowConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <div id="nineStatus" class="noticeNotice" style="margin-bottom:1em;"></div>
+
+                <form id="NineNowConfigForm">
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="AdFree" name="AdFree" type="checkbox" is="emby-checkbox" />
+                            <span>Ad-free (prefer clean upstream HLS over Yospace SSAI)</span>
+                        </label>
+                    </div>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="IncludeFastChannels" name="IncludeFastChannels" type="checkbox" is="emby-checkbox" />
+                            <span>Include FAST / 24x7 channels (Seinfeld, BBC News, ...)</span>
+                        </label>
+                    </div>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="ProgrammeArtwork" name="ProgrammeArtwork" type="checkbox" is="emby-checkbox" />
+                            <span>Use show cards as programme artwork (FAST channels)</span>
+                        </label>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="GuideLookbackHours">Guide lookback (hours)</label>
+                        <input id="GuideLookbackHours" name="GuideLookbackHours" type="number" is="emby-input" min="0" max="48" />
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="GuideLookaheadHours">Guide lookahead (hours)</label>
+                        <input id="GuideLookaheadHours" name="GuideLookaheadHours" type="number" is="emby-input" min="1" max="24" />
+                        <div class="fieldDescription">The 9Now feed only covers roughly the next 12 hours.</div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="BrightcoveAccountId">Brightcove account id (fallback, empty = disabled)</label>
+                        <input id="BrightcoveAccountId" name="BrightcoveAccountId" type="text" is="emby-input" />
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="BrightcovePolicyKey">Brightcove policy key (fallback)</label>
+                        <input id="BrightcovePolicyKey" name="BrightcovePolicyKey" type="text" is="emby-input" />
+                    </div>
+
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                            <span>Save</span>
+                        </button>
+                    </div>
+                </form>
+
+                <div style="margin-top:1em;">
+                    <button is="emby-button" id="RegisterBtn" class="raised block">
+                        <span>Register 9Now tuner &amp; guide in Live TV settings</span>
+                    </button>
+                    <button is="emby-button" id="UnregisterBtn" class="raised block">
+                        <span>Remove 9Now entries from Live TV settings</span>
+                    </button>
+                </div>
+
+                <div class="fieldDescription" style="margin-top:1em;">
+                    After registering, run <b>Scheduled Tasks &rarr; Refresh Guide</b>. The 9Now guide feed only
+                    reaches ~12 hours ahead, so set the guide refresh interval to 6&ndash;12 hours.
+                </div>
+            </div>
+        </div>
+
+        <script type="text/javascript">
+            var NineNowConfig = {
+                pluginUniqueId: '343f098f-4087-425d-a3a2-182e50992673'
+            };
+
+            function setStatus(msg) {
+                document.querySelector('#nineStatus').innerHTML = msg;
+            }
+
+            document.querySelector('#NineNowConfigPage')
+                .addEventListener('pageshow', function () {
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(NineNowConfig.pluginUniqueId).then(function (config) {
+                        document.querySelector('#AdFree').checked = config.AdFree;
+                        document.querySelector('#IncludeFastChannels').checked = config.IncludeFastChannels;
+                        document.querySelector('#ProgrammeArtwork').checked = config.ProgrammeArtwork;
+                        document.querySelector('#GuideLookbackHours').value = config.GuideLookbackHours;
+                        document.querySelector('#GuideLookaheadHours').value = config.GuideLookaheadHours;
+                        document.querySelector('#BrightcoveAccountId').value = config.BrightcoveAccountId;
+                        document.querySelector('#BrightcovePolicyKey').value = config.BrightcovePolicyKey;
+                        Dashboard.hideLoadingMsg();
+
+                        ApiClient.ajax({ url: '/NineNow/channels', type: 'GET', dataType: 'json' })
+                            .then(function (info) {
+                                // Jellyfin serialises plugin controller JSON in PascalCase.
+                                var market = info.market || info.Market;
+                                var marketName = market ? ((market.Name || market.name || '?') + ' (' + (market.State || market.state || '?') + ')') : 'unknown';
+                                var count = info.channels || info.Channels;
+                                var entry = info.entry || info.Entry;
+                                setStatus('9Now API reachable &mdash; market: <b>' + marketName + '</b>, channels: <b>' + count + '</b><br>playlist: ' + entry.playlist + '<br>epg: ' + entry.epg);
+                            })
+                            .catch(function () {
+                                setStatus('9Now API not reachable from this server right now (or blocked). Check egress region.');
+                            });
+                    });
+                });
+
+            document.querySelector('#NineNowConfigForm')
+                .addEventListener('submit', function (e) {
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(NineNowConfig.pluginUniqueId).then(function (config) {
+                        config.AdFree = document.querySelector('#AdFree').checked;
+                        config.IncludeFastChannels = document.querySelector('#IncludeFastChannels').checked;
+                        config.ProgrammeArtwork = document.querySelector('#ProgrammeArtwork').checked;
+                        config.GuideLookbackHours = parseInt(document.querySelector('#GuideLookbackHours').value, 10) || 24;
+                        config.GuideLookaheadHours = parseInt(document.querySelector('#GuideLookaheadHours').value, 10) || 12;
+                        config.BrightcoveAccountId = document.querySelector('#BrightcoveAccountId').value;
+                        config.BrightcovePolicyKey = document.querySelector('#BrightcovePolicyKey').value;
+                        ApiClient.updatePluginConfiguration(NineNowConfig.pluginUniqueId, config).then(function (result) {
+                            Dashboard.processPluginConfigurationUpdateResult(result);
+                        });
+                    });
+
+                    e.preventDefault();
+                    return false;
+                });
+
+            document.querySelector('#RegisterBtn')
+                .addEventListener('click', function () {
+                    setStatus('Registering...');
+                    ApiClient.ajax({ url: '/NineNow/setup', type: 'POST', dataType: 'json' })
+                        .then(function (r) {
+                            var tunerId = r.TunerHostId || r.tunerHostId;
+                            var epgId = r.ListingsProviderId || r.listingsProviderId;
+                            setStatus('Registered. Tuner: <b>' + tunerId + '</b>, EPG: <b>' + epgId +
+                                '</b><br>Guide refresh runs automatically; you can also run <b>Scheduled Tasks &rarr; Refresh Guide</b>.');
+                        })
+                        .catch(function (err) {
+                            setStatus('Registration failed: ' + (err.message || err));
+                        });
+                });
+
+            document.querySelector('#UnregisterBtn')
+                .addEventListener('click', function () {
+                    setStatus('Removing...');
+                    ApiClient.ajax({ url: '/NineNow/unregister', type: 'POST', dataType: 'json' })
+                        .then(function () {
+                            setStatus('9Now Live TV entries removed.');
+                        })
+                        .catch(function (err) {
+                            setStatus('Removal failed: ' + (err.message || err));
+                        });
+                });
+        </script>
+    </div>
+</body>
+</html>
