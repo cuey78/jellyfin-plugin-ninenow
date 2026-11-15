@@ -8,7 +8,8 @@ live playback, and DVR/timers.
 Channels, stream URLs, EPG and artwork are all pulled **live from the 9Now
 service** — nothing is hardcoded.
 
-Target: **Jellyfin 12.x** (built against `Jellyfin.Controller 12.4.0`, `net10.0`).
+Target: **Jellyfin 12.x** (built against `Jellyfin.Controller 12.0.0`, `net10.0`,
+so the package installs on every 12.x server — verified on 12.2.0 and 12.4.0).
 Playback requires an **Australian** egress IP (the 9Now API is geo-restricted;
 the guide/channels API works from anywhere).
 
