@@ -8,12 +8,12 @@
     "guid": "343f098f-4087-425d-a3a2-182e50992673",
     "versions": [
       {
-        "version": "1.0.0.5",
+        "version": "1.0.0.6",
         "changelog": "-",
-        "timestamp": "2026-11-15T09:09:52Z",
-        "targetAbi": "12.4.0.0",
-        "sourceUrl": "https://raw.githubusercontent.com/cuey78/jellyfin-plugin-ninenow/main/dist/nine-network_1.0.0.5.zip",
-        "checksum": "f51c1033ec223485b3215b0ea348c932"
+        "timestamp": "2026-11-15T09:22:01Z",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://raw.githubusercontent.com/cuey78/jellyfin-plugin-ninenow/main/dist/nine-network_1.0.0.6.zip",
+        "checksum": "f198598cdae23a429f6c910520c48005"
       }
     ]
   }
