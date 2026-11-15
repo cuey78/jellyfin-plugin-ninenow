@@ -43,4 +43,12 @@ public interface INineApiClient
         string slug,
         PluginConfiguration config,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Finds a show's card image by title via the 9Now search API (cached, confident matches only).
+    /// </summary>
+    /// <param name="title">The programme/show title.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The image URL, or null when no confident match was found.</returns>
+    Task<string?> GetShowPosterUrlAsync(string title, CancellationToken cancellationToken);
 }

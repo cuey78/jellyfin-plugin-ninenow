@@ -32,6 +32,13 @@
                         </label>
                     </div>
 
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="ShowPosterMatching" name="ShowPosterMatching" type="checkbox" is="emby-checkbox" />
+                            <span>Look up show posters by title via 9Now search</span>
+                        </label>
+                    </div>
+
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="GuideLookbackHours">Guide lookback (hours)</label>
                         <input id="GuideLookbackHours" name="GuideLookbackHours" type="number" is="emby-input" min="0" max="48" />
@@ -92,6 +99,7 @@
                         document.querySelector('#AdFree').checked = config.AdFree;
                         document.querySelector('#IncludeFastChannels').checked = config.IncludeFastChannels;
                         document.querySelector('#ProgrammeArtwork').checked = config.ProgrammeArtwork;
+                        document.querySelector('#ShowPosterMatching').checked = config.ShowPosterMatching;
                         document.querySelector('#GuideLookbackHours').value = config.GuideLookbackHours;
                         document.querySelector('#GuideLookaheadHours').value = config.GuideLookaheadHours;
                         document.querySelector('#BrightcoveAccountId').value = config.BrightcoveAccountId;
@@ -120,6 +128,7 @@
                         config.AdFree = document.querySelector('#AdFree').checked;
                         config.IncludeFastChannels = document.querySelector('#IncludeFastChannels').checked;
                         config.ProgrammeArtwork = document.querySelector('#ProgrammeArtwork').checked;
+                        config.ShowPosterMatching = document.querySelector('#ShowPosterMatching').checked;
                         config.GuideLookbackHours = parseInt(document.querySelector('#GuideLookbackHours').value, 10) || 24;
                         config.GuideLookaheadHours = parseInt(document.querySelector('#GuideLookaheadHours').value, 10) || 12;
                         config.BrightcoveAccountId = document.querySelector('#BrightcoveAccountId').value;

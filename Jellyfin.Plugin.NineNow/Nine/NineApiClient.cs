@@ -28,10 +28,17 @@ public sealed class NineApiClient : INineApiClient
     private static readonly TimeSpan ChannelCacheTtl = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan LiveInfoCacheTtl = TimeSpan.FromSeconds(90);
     private static readonly TimeSpan ResolveCacheTtl = TimeSpan.FromMinutes(3);
+    private static readonly TimeSpan PosterCacheTtl = TimeSpan.FromDays(7);
+    private static readonly TimeSpan PosterMissCacheTtl = TimeSpan.FromHours(6);
+
+    private const string SearchPagePath = "/web/search-page";
+    private const int MaxPosterCacheEntries = 4000;
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<NineApiClient> _logger;
     private readonly ConcurrentDictionary<string, CacheEntry> _cache = new();
+    private readonly ConcurrentDictionary<string, PosterCacheEntry> _posters = new();
+    private readonly ConcurrentDictionary<string, Task<string?>> _posterFetches = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="NineApiClient"/> class.
@@ -206,6 +213,173 @@ public sealed class NineApiClient : INineApiClient
     {
         return GetOrFetchAsync("resolve:" + slug, ResolveCacheTtl,
             ct => ResolveUncachedAsync(slug, config, ct), cancellationToken);
+    }
+
+    /// <summary>
+    /// Looks up a show's card image via the 9Now search API, matched on the normalised
+    /// programme title. Results (including misses) are cached; concurrent lookups for the
+    /// same show share one request.
+    /// </summary>
+    /// <param name="title">The programme/show title as it appears in the guide feed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The card image URL, or null when no confident match was found.</returns>
+    public async Task<string?> GetShowPosterUrlAsync(string title, CancellationToken cancellationToken)
+    {
+        var key = NormalizeTitle(title);
+        if (key.Length < 3)
+        {
+            return null;
+        }
+
+        if (_posters.TryGetValue(key, out var cached) && cached.ExpiresUtc > DateTime.UtcNow)
+        {
+            return cached.Url;
+        }
+
+        var fetch = _posterFetches.GetOrAdd(
+            key,
+            _ => FetchShowPosterAsync(title, key, CancellationToken.None));
+
+        string? url;
+        try
+        {
+            url = await fetch.ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "9Now poster lookup failed for {Title}", title);
+            return null;
+        }
+        finally
+        {
+            _posterFetches.TryRemove(key, out _);
+        }
+
+        if (_posters.Count >= MaxPosterCacheEntries)
+        {
+            _posters.Clear();
+        }
+
+        _posters[key] = new PosterCacheEntry(url, DateTime.UtcNow + (url is null ? PosterMissCacheTtl : PosterCacheTtl));
+        return url;
+    }
+
+    private async Task<string?> FetchShowPosterAsync(string query, string normalizedKey, CancellationToken cancellationToken)
+    {
+        var url = ApiBase + SearchPagePath
+            + "?query=" + Uri.EscapeDataString(query)
+            + "&region=&token=&queryFlagsArgs=" + Uri.EscapeDataString("{\"flags\":{\"viewId\":\"\"}}");
+
+        using var doc = await GetJsonAsync(url, cancellationToken).ConfigureAwait(false);
+
+        if (!doc.RootElement.TryGetProperty("data", out var data)
+            || !data.TryGetProperty("getSearchPage", out var page)
+            || !page.TryGetProperty("sections", out var sections)
+            || !sections.TryGetProperty("content", out var content)
+            || !content.TryGetProperty("tabs", out var tabs)
+            || tabs.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        var prefixMatch = false;
+        var prefixCard = default(JsonElement);
+
+        foreach (var tab in tabs.EnumerateArray())
+        {
+            if (!tab.TryGetProperty("cards", out var cards) || cards.ValueKind != JsonValueKind.Array)
+            {
+                continue;
+            }
+
+            foreach (var card in cards.EnumerateArray())
+            {
+                var cardTitle = card.TryGetProperty("title", out var titleEl)
+                                && titleEl.TryGetProperty("text", out var textEl)
+                    ? textEl.GetString()
+                    : null;
+
+                var normalized = NormalizeTitle(cardTitle);
+                if (normalized.Length == 0)
+                {
+                    continue;
+                }
+
+                if (normalized == normalizedKey)
+                {
+                    return PickSearchCardImage(card);
+                }
+
+                // "Antiques Roadshow: Series 29" against card "Antiques Roadshow" and
+                // "Seinfeld" against "Seinfeld 24/7" are the same show.
+                if (!prefixMatch
+                    && (normalized.StartsWith(normalizedKey + " ", StringComparison.Ordinal)
+                        || normalizedKey.StartsWith(normalized + " ", StringComparison.Ordinal)))
+                {
+                    prefixMatch = true;
+                    prefixCard = card;
+                }
+            }
+        }
+
+        return prefixMatch ? PickSearchCardImage(prefixCard) : null;
+    }
+
+    private static string NormalizeTitle(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return string.Empty;
+        }
+
+        var sb = new StringBuilder(input.Length);
+        foreach (var ch in input.Normalize(NormalizationForm.FormD))
+        {
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch) == UnicodeCategory.NonSpacingMark)
+            {
+                continue;
+            }
+
+            if (char.IsLetterOrDigit(ch))
+            {
+                sb.Append(char.ToLowerInvariant(ch));
+            }
+            else if (sb.Length > 0 && sb[^1] != ' ')
+            {
+                sb.Append(' ');
+            }
+        }
+
+        return sb.ToString().Trim();
+    }
+
+    private static string? PickSearchCardImage(JsonElement card)
+    {
+        if (!card.TryGetProperty("cardImage", out var img) || img.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        foreach (var variantName in new[] { "default", "webp" })
+        {
+            if (!img.TryGetProperty(variantName, out var variant) || variant.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            foreach (var size in new[] { "w768", "w1280", "w480", "w362", "w320", "w1920" })
+            {
+                if (variant.TryGetProperty(size, out var sizeObj)
+                    && sizeObj.ValueKind == JsonValueKind.Object
+                    && sizeObj.TryGetProperty("url", out var urlEl)
+                    && urlEl.ValueKind == JsonValueKind.String)
+                {
+                    return urlEl.GetString();
+                }
+            }
+        }
+
+        return null;
     }
 
     private async Task<ResolvedStream?> ResolveUncachedAsync(
@@ -631,6 +805,8 @@ public sealed class NineApiClient : INineApiClient
     }
 
     private readonly record struct CacheEntry(object Value, DateTime ExpiresUtc);
+
+    private readonly record struct PosterCacheEntry(string? Url, DateTime ExpiresUtc);
 }
 
 internal static class JsonElementExtensions

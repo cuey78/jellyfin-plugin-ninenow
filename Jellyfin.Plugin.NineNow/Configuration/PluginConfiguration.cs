@@ -25,6 +25,12 @@ public class PluginConfiguration : BasePluginConfiguration
     public bool ProgrammeArtwork { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets a value indicating whether shows without a promoImage get their
+    /// card image looked up from the 9Now search API by title.
+    /// </summary>
+    public bool ShowPosterMatching { get; set; } = true;
+
+    /// <summary>
     /// Gets or sets the Brightcove account id used as a last-resort stream fallback.
     /// Leave empty to disable the Brightcove fallback.
     /// </summary>

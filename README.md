@@ -54,6 +54,9 @@ plugin created.
 - **Ad-free** — prefer the clean upstream HLS over the Yospace SSAI ad manifest.
 - **Include FAST / 24×7 channels** — toggle the always-on channels.
 - **Programme artwork** — use show promo cards as guide cell art / backdrops.
+- **Show posters via 9Now search** — programmes are matched to their show card by
+  title through the 9Now search API (cached ~7 days, conservative matching:
+  unmatched titles fall back to the channel promo card instead of wrong art).
 - **Guide lookback/lookahead hours** — XMLTV window.
 - **Brightcove account id / policy key** — enables the Brightcove fallback path.
 

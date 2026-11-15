@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -113,6 +114,11 @@ public class NineNowController : ControllerBase
         var channels = await GetVisibleChannelsAsync(cancellationToken).ConfigureAwait(false);
         var liveInfo = await _nine.GetAllLiveInfoAsync(channels, cancellationToken).ConfigureAwait(false);
 
+        if (config.ProgrammeArtwork && config.ShowPosterMatching)
+        {
+            await PreWarmPosterCacheAsync(liveInfo, config, cancellationToken).ConfigureAwait(false);
+        }
+
         var now = DateTimeOffset.UtcNow;
         var windowStart = now.AddHours(-config.GuideLookbackHours);
         var windowEnd = now.AddHours(config.GuideLookaheadHours);
@@ -153,11 +159,23 @@ public class NineNowController : ControllerBase
                     continue;
                 }
 
-                var programmeArt = config.ProgrammeArtwork ? info.PromoImageUrl : null;
+                var fallbackArt = config.ProgrammeArtwork ? info.PromoImageUrl : null;
 
                 foreach (var block in BuildProgrammeBlocks(info.Programmes, windowStart, windowEnd))
                 {
                     var programme = block.Programme;
+
+                    var programmeArt = config.ShowPosterMatching
+                        ? await _nine
+                            .GetShowPosterUrlAsync(programme.Title, cancellationToken)
+                            .ConfigureAwait(false)
+                        : null;
+
+                    // Fall back to the channel's promo card when no title match was found.
+                    if (string.IsNullOrEmpty(programmeArt))
+                    {
+                        programmeArt = fallbackArt;
+                    }
                     writer.WriteStartElement("programme");
                     writer.WriteAttributeString("start", FormatXmlTvDate(block.Start));
                     writer.WriteAttributeString("stop", FormatXmlTvDate(block.End));
@@ -275,6 +293,41 @@ public class NineNowController : ControllerBase
     {
         _setup.Unregister();
         return Ok(new { removed = true });
+    }
+
+    private async Task PreWarmPosterCacheAsync(
+        System.Collections.Generic.IReadOnlyDictionary<string, NineLiveInfo> liveInfo,
+        PluginConfiguration config,
+        CancellationToken cancellationToken)
+    {
+        var titles = liveInfo.Values
+            .SelectMany(i => i.Programmes)
+            .SelectMany(p => new[] { p.Title, p.Secondary?.Title })
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(150)
+            .ToList();
+
+        if (titles.Count == 0)
+        {
+            return;
+        }
+
+        var semaphore = new SemaphoreSlim(4);
+        var tasks = titles.Select(async title =>
+        {
+            await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await _nine.GetShowPosterUrlAsync(title!, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        });
+
+        await Task.WhenAll(tasks).ConfigureAwait(false);
     }
 
     private async Task<System.Collections.Generic.IReadOnlyList<NineChannel>> GetVisibleChannelsAsync(
