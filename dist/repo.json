@@ -10,10 +10,10 @@
       {
         "version": "1.0.0.5",
         "changelog": "-",
-        "timestamp": "2026-11-15T08:57:21Z",
+        "timestamp": "2026-11-15T09:09:52Z",
         "targetAbi": "12.4.0.0",
-        "sourceUrl": "http://127.0.0.1:8123/nine-network_1.0.0.5.zip",
-        "checksum": "486f70fb508c5ae62ebb36252c3c993b"
+        "sourceUrl": "https://raw.githubusercontent.com/cuey78/jellyfin-plugin-ninenow/main/dist/nine-network_1.0.0.5.zip",
+        "checksum": "f51c1033ec223485b3215b0ea348c932"
       }
     ]
   }

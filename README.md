@@ -37,16 +37,19 @@ Brightcove fallback (optional, configure account id + policy key).
 
 ### From a plugin repository (recommended)
 
-Serve `dist/repo.json` + the zips next to it from any HTTPS location (a GitHub
-repo with the `dist/` folder committed works well). Then in Jellyfin:
-**Dashboard → Plugins → Repositories**, add the `repo.json` URL — "Nine Network
-(9Now)" shows up in the plugin catalog, and updates flow through Jellyfin's
-normal plugin-update mechanism.
+Add this repository URL in Jellyfin under **Dashboard → Plugins →
+Repositories** — "Nine Network (9Now)" shows up in the plugin catalog, and
+updates flow through Jellyfin's normal plugin-update mechanism:
 
-Rebuild the feed after bumping the version in the `.csproj`:
+```
+https://raw.githubusercontent.com/cuey78/jellyfin-plugin-ninenow/main/dist/repo.json
+```
+
+To host your own fork, serve `dist/repo.json` + the zips next to it from any
+HTTPS location and rebuild the feed after bumping the version in the `.csproj`:
 
 ```sh
-./packaging/build-release.sh https://raw.githubusercontent.com/<you>/<repo>/<branch>/dist
+./packaging/build-release.sh https://raw.githubusercontent.com/cuey78/jellyfin-plugin-ninenow/main/dist
 ```
 
 This writes `dist/nine-network_<version>.zip` and regenerates `dist/repo.json`
